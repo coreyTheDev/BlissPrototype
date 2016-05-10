@@ -12,16 +12,20 @@
 #import <Mantle/Mantle.h>
 #import "GooglePlaceResult.h"
 #import "PlaceResultsTableViewController.h"
+#import "NSString+URLEncoding.h"
 
+@import WebKit;
 @import GoogleMaps;
 
 #define TABLEVIEW_CELL_PRODUCT_ENTRY @"TABLEVIEW_CELL_PRODUCT_ENTRY"
-@interface ProductEntryTableViewController () <UITextFieldDelegate, CLLocationManagerDelegate,PlaceResultsSelectionDelegate>
+@interface ProductEntryTableViewController () <UITextFieldDelegate, CLLocationManagerDelegate,PlaceResultsSelectionDelegate,WKUIDelegate,WKNavigationDelegate>
 
 @property (strong, nonatomic) CLLocationManager *locationManager;
 @property (strong, nonatomic) NSNumber *latitude;
 @property (strong, nonatomic) NSNumber *longitude;
 @property (strong, nonatomic) GooglePlaceResult *selectedPlace;
+@property (strong, nonatomic) NSString *storeWebsite;
+@property (nonatomic,strong) WKWebView *shopWKWebView;
 @end
 
 @implementation ProductEntryTableViewController
@@ -97,6 +101,7 @@
     if (self.latitude && self.longitude)
     {
         NSString  *requestURL = [NSString stringWithFormat:@"https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=%f,%f&radius=2000&keyword=%@&types=store&key=AIzaSyCxsjqeViR9uh1lWNJH5m-Nb6tVGoFw500",self.latitude.floatValue, self.longitude.floatValue,keyword];
+        requestURL = [requestURL stringByReplacingOccurrencesOfString:@" " withString:@"%20"];
         NSURLRequest *request = [[NSURLRequest alloc]initWithURL:[NSURL URLWithString:requestURL]];
         NSURLSession *session = [NSURLSession sharedSession];
         [[session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
@@ -160,6 +165,21 @@
         if (error == nil) {
             NSDictionary *responseObject = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
             NSLog(@"received place details");
+            NSDictionary *responseDictionary = [responseObject objectForKey:@"result"];
+            if (responseDictionary)
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSString *website = [responseDictionary objectForKey:@"website"];
+                    
+                    ProductEntryTableViewCell *cell = [self.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
+                    [cell.websiteButton setTitle:website forState:UIControlStateNormal];
+                    [cell.websiteButton setTitle:website forState:UIControlStateSelected];
+                    [cell.websiteButton addTarget:self action:@selector(showWebsite) forControlEvents:UIControlEventTouchUpInside];
+                    self.storeWebsite = website;
+
+                });
+                
+            }
             /*
             NSMutableArray *places = [NSMutableArray new];
             for (NSDictionary *resultDictionary in [responseObject objectForKey:@"results"])
@@ -181,6 +201,41 @@
     }] resume];
 }
 
+-(void)showWebsite
+{
+    NSLog(@"showing website");
+    if (self.storeWebsite)
+    {
+        
+        NSLog(@"Creating WKWebview for Shop");
+        self.shopWKWebView = [[WKWebView alloc]initWithFrame:self.view.frame];
+        [self.shopWKWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:self.storeWebsite]]];
+        [self.shopWKWebView setNavigationDelegate:self];
+        [self.view addSubview:self.shopWKWebView];
+    }
+}
 
+#pragma mark WKWebview Delegate methods
+-(void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
+{
+//    [self.view addSubview:loadingIndicator];
+//    [self.view bringSubviewToFront:loadingIndicator];
+//    [loadingIndicator startAnimating];
+}
+-(void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation
+{
+//    [loadingIndicator removeFromSuperview];
+//    [loadingIndicator stopAnimating];
+}
+-(void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+//    [loadingIndicator removeFromSuperview];
+//    [loadingIndicator stopAnimating];
+}
+-(void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error
+{
+//    [loadingIndicator removeFromSuperview];
+//    [loadingIndicator stopAnimating];
+}
 
 @end

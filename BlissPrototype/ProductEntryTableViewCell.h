@@ -11,5 +11,6 @@
 @interface ProductEntryTableViewCell : UITableViewCell
 @property (weak, nonatomic) IBOutlet UITextField *storeNameTextField;
 @property (weak, nonatomic) IBOutlet UITextField *productNameTextField;
+@property (weak, nonatomic) IBOutlet UIButton *websiteButton;
 
 @end
